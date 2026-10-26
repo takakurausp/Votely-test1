@@ -97,12 +97,28 @@ window.addEventListener('load', function() {
 });
 
 function gasPost(payload) {
+  // config.js が未編集（プレースホルダー）のままだと Google は 404 の HTML を返す
+  if (!GAS_URL || GAS_URL.indexOf('XXXX') !== -1 || !/^https?:\/\//i.test(GAS_URL)) {
+    return Promise.reject(new Error('GASのURLが未設定です。docs/config.js の GAS_URL をデプロイURLに書き換えてください。'));
+  }
   return fetch(GAS_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify(payload),
     redirect: 'follow'
-  }).then(function(res) { return res.json(); });
+  }).then(function(res) {
+    if (!res.ok) {
+      throw new Error('サーバーがHTTP ' + res.status + ' を返しました。GASのデプロイURLと「アクセスできるユーザー: 全員」の設定をご確認ください。');
+    }
+    return res.text().then(function(text) {
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        // GAS が JSON ではなく HTML（ログイン画面など）を返している
+        throw new Error('サーバーがJSON以外を返しました（HTTP ' + res.status + '）。GASのデプロイURLと「アクセスできるユーザー: 全員」の設定をご確認ください。');
+      }
+    });
+  });
 }
 
 function onVerifyPassword() {
